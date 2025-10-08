@@ -4,29 +4,11 @@ export interface WordData {
   word: string;
   korean: string;
   english: string;
-  example?: string;
-  phonetic?: string;
   partOfSpeech?: string;
 }
 
-export interface WordsApiResponse {
-  word: string;
-  pronunciation?: {
-    all?: string;
-  };
-  results?: {
-    definition: string;
-    partOfSpeech: string;
-    examples?: string[];
-  }[];
-}
-
-// Datamuse API에서 랜덤 단어 가져오기 (완전 무료!)
 export async function getRandomWordFromAPI(): Promise<WordData | null> {
   try {
-    console.log('Datamuse API 사용 (결제수단 불필요)');
-
-    // 랜덤 단어 검색을 위한 랜덤 문자
     const randomChar = String.fromCharCode(97 + Math.floor(Math.random() * 26));
 
     const response = await fetch(
@@ -42,7 +24,6 @@ export async function getRandomWordFromAPI(): Promise<WordData | null> {
     if (!data || data.length === 0) {
       return null;
     }
-
     // 랜덤하게 하나 선택
     const randomWord = data[Math.floor(Math.random() * data.length)];
 
@@ -51,12 +32,9 @@ export async function getRandomWordFromAPI(): Promise<WordData | null> {
       english:
         randomWord.defs?.[0]?.split('\t')[1] || 'No definition available',
       partOfSpeech: randomWord.defs?.[0]?.split('\t')[0] || 'unknown',
-      example: randomWord.defs?.[1]?.split('\t')[1] || undefined,
-      phonetic: undefined,
       korean: '' // 번역 API로 채워질 예정
     };
-  } catch (error) {
-    console.error('Datamuse API 오류:', error);
+  } catch {
     return null;
   }
 }
@@ -88,10 +66,10 @@ export async function translateToKorean(text: string): Promise<string> {
     }
 
     const data = await response.json();
+    console.log(data);
     return data.translations[0].text;
-  } catch (error) {
-    console.error('DeepL 번역 API 오류:', error);
-    return text; // 번역 실패 시 원문 반환
+  } catch {
+    return text;
   }
 }
 
@@ -108,44 +86,30 @@ export async function getCompleteWordData(): Promise<WordData | null> {
     // 2. 한국어 번역
     const koreanTranslation = await translateToKorean(wordData.english);
 
-    return {
+    const result = {
       ...wordData,
       korean: koreanTranslation
     };
-  } catch (error) {
-    console.error('완전한 단어 데이터 생성 오류:', error);
+
+    return result;
+  } catch {
     return null;
   }
 }
 
-// 여러 단어 가져오기 (순차적으로 API 호출)
+// 🚀 병렬로 여러 단어 가져오기 (빠름!)
 export async function getMultipleRandomWords(
-  count: number = 5
+  count: number = 10
 ): Promise<WordData[]> {
-  console.log('API에서 순차적으로 단어 가져오기');
+  // Promise.all로 병렬 처리
+  const promises = Array(count)
+    .fill(null)
+    .map(() => getCompleteWordData());
 
-  const words: WordData[] = [];
+  const results = await Promise.all(promises);
 
-  // 순차적으로 단어 가져오기 (한도 초과 방지)
-  for (let i = 0; i < count; i++) {
-    try {
-      console.log(`${i + 1}/${count} 단어 요청 중...`);
-      const wordData = await getCompleteWordData();
-      if (wordData) {
-        words.push(wordData);
-        console.log(`✅ ${i + 1}/${count} 단어 완료: ${wordData.word}`);
-      }
+  // null 제거
+  const words = results.filter((word): word is WordData => word !== null);
 
-      // 요청 간 딜레이 (API 한도 방지) - 1초 대기
-      if (i < count - 1) {
-        console.log('⏳ 1초 대기 중...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    } catch (error) {
-      console.error(`❌ ${i + 1}번째 단어 가져오기 실패:`, error);
-    }
-  }
-
-  console.log(`🎉 총 ${words.length}개 단어 성공적으로 가져옴`);
   return words;
 }

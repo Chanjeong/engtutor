@@ -1,10 +1,22 @@
 'use server';
 
-export interface WordData {
-  word: string;
-  korean: string;
-  english: string;
-  partOfSpeech?: string;
+import { WordData } from '@/types/word';
+
+// 품사를 한국어로 변환
+function convertPartOfSpeech(pos: string): string {
+  const posMap: Record<string, string> = {
+    'n': '명사',
+    'v': '동사',
+    'adj': '형용사',
+    'adv': '부사',
+    'prep': '전치사',
+    'pron': '대명사',
+    'conj': '접속사',
+    'interj': '감탄사',
+    'u': '기타'
+  };
+
+  return posMap[pos];
 }
 
 export async function getRandomWordFromAPI(): Promise<WordData | null> {
@@ -20,26 +32,30 @@ export async function getRandomWordFromAPI(): Promise<WordData | null> {
     }
 
     const data = await response.json();
-
     if (!data || data.length === 0) {
       return null;
     }
     // 랜덤하게 하나 선택
     const randomWord = data[Math.floor(Math.random() * data.length)];
 
+    // 품사 추출 및 한국어 변환
+    const posAbbr = randomWord.defs?.[0]?.split('\t')[0] || 'u';
+    const partOfSpeechKorean = convertPartOfSpeech(posAbbr);
+
+    // 영어 정의 추출 (fallback용)
+    const englishDefinition = randomWord.defs?.[0]?.split('\t')[1] || '';
+
     return {
       word: randomWord.word,
-      english:
-        randomWord.defs?.[0]?.split('\t')[1] || 'No definition available',
-      partOfSpeech: randomWord.defs?.[0]?.split('\t')[0] || 'unknown',
-      korean: '' // 번역 API로 채워질 예정
+      partOfSpeech: partOfSpeechKorean,
+      korean: '',
+      englishDef: englishDefinition
     };
   } catch {
     return null;
   }
 }
 
-// DeepL API로 한국어 번역 (고품질!)
 export async function translateToKorean(text: string): Promise<string> {
   try {
     const deepLApiKey = process.env.DEEPL_API_KEY;
@@ -66,7 +82,6 @@ export async function translateToKorean(text: string): Promise<string> {
     }
 
     const data = await response.json();
-    console.log(data);
     return data.translations[0].text;
   } catch {
     return text;
@@ -83,12 +98,23 @@ export async function getCompleteWordData(): Promise<WordData | null> {
       return null;
     }
 
-    // 2. 한국어 번역
-    const koreanTranslation = await translateToKorean(wordData.english);
+    // 2. 단어 자체를 한국어로 번역 (1차 시도)
+    let koreanTranslation = await translateToKorean(wordData.word);
+
+    // 3. 번역 실패 체크 (번역 결과가 원래 단어와 같거나 비슷하면 실패)
+    const isTranslationFailed =
+      koreanTranslation.toLowerCase() === wordData.word.toLowerCase() ||
+      koreanTranslation === wordData.word;
+
+    // 4. 번역 실패 시 → 영어 정의를 번역 (2차 시도)
+    if (isTranslationFailed && wordData.englishDef) {
+      koreanTranslation = await translateToKorean(wordData.englishDef);
+    }
 
     const result = {
-      ...wordData,
-      korean: koreanTranslation
+      word: wordData.word,
+      korean: koreanTranslation,
+      partOfSpeech: wordData.partOfSpeech
     };
 
     return result;
@@ -97,9 +123,9 @@ export async function getCompleteWordData(): Promise<WordData | null> {
   }
 }
 
-// 🚀 병렬로 여러 단어 가져오기 (빠름!)
+// 🚀 병렬로 여러 단어 가져오기
 export async function getMultipleRandomWords(
-  count: number = 10
+  count: number = 5
 ): Promise<WordData[]> {
   // Promise.all로 병렬 처리
   const promises = Array(count)
@@ -108,8 +134,29 @@ export async function getMultipleRandomWords(
 
   const results = await Promise.all(promises);
 
-  // null 제거
   const words = results.filter((word): word is WordData => word !== null);
 
   return words;
+}
+
+// 📝 맞춘 단어 저장 (Server Action)
+export async function saveLearnedWord(wordData: WordData): Promise<void> {
+  // 서버에 저장하는 척 (실제로는 시간 지연만)
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // 실제로는 여기서 DB에 저장:
+  // await prisma.learnedWord.create({ data: { word: wordData.word } });
+
+  console.log('✅ 맞춘 단어 저장:', wordData.word);
+}
+
+// 📕 틀린 단어 오답노트에 저장 (Server Action)
+export async function saveWrongWord(wordData: WordData): Promise<void> {
+  // 서버에 저장하는 척 (실제로는 시간 지연만)
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // 실제로는 여기서 DB에 저장:
+  // await prisma.wrongNote.create({ data: wordData });
+
+  console.log('📕 오답노트 저장:', wordData.word);
 }

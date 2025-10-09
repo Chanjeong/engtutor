@@ -1,6 +1,8 @@
+import { getMultipleRandomWords } from '@/app/actions/words';
 import StudyClient from './StudyClient';
 
-export default function StudyPage() {
-  // Server Component는 단순히 Client로 전달만
-  return <StudyClient />;
+export default async function StudyPage() {
+  const words = await getMultipleRandomWords();
+
+  return <StudyClient initialWords={words} />;
 }

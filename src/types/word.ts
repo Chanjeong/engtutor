@@ -1,7 +1,13 @@
 // 단어 상태 타입
 export type WordStatus = 'unseen' | 'learned' | 'wrong';
 
-// 단어 데이터 인터페이스
+// 단어 데이터 인터페이스 (API에서 가져온 원본 데이터)
+export interface WordData {
+  word: string; // 영어 단어 (예: "apple")
+  korean: string; // 한국어 뜻 (예: "사과")
+  partOfSpeech?: string; // 품사 (예: "명사")
+  englishDef?: string; // 영어 정의 (fallback용)
+}
 export interface WordProgress {
   word: string;
   korean: string;

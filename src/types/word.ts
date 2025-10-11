@@ -57,3 +57,43 @@ export interface TodayProgress {
   percentage: number; // 진행률 (0-100)
   isComplete: boolean; // 완료 여부
 }
+
+// === 통계 페이지 전용 타입들 ===
+
+// 날짜별 학습 데이터 (차트용)
+export interface DailyData {
+  date: string; // YYYY-MM-DD
+  learned: number; // 해당 날짜에 맞힌 단어 수
+  wrong: number; // 해당 날짜에 틀린 단어 수
+  total: number; // 해당 날짜 총 학습량
+  dateLabel: string; // 화면 표시용 날짜 (예: "1/15")
+}
+
+// 단어 상태별 분포 데이터 (파이 차트용)
+export interface DistributionData {
+  name: string; // "맞힌 단어" | "틀린 단어"
+  value: number; // 개수
+  color: string; // 색상 코드
+  emoji: string; // 이모지
+  [key: string]: string | number; // Recharts를 위한 index signature
+}
+
+// 가장 많이 틀린 단어 정보
+export interface WrongWord {
+  word: string; // 영어 단어
+  korean: string; // 한국어 뜻
+  count: number; // 틀린 횟수
+  lastWrong: string; // 마지막으로 틀린 날짜
+}
+
+// 통계 페이지 전체 데이터 (통합)
+export interface StatsData {
+  totalLearned: number; // 총 맞힌 단어
+  totalWrong: number; // 총 틀린 단어
+  totalReviews: number; // 총 복습 횟수
+  successRate: number; // 정답률 (%)
+  dailyData: DailyData[]; // 날짜별 데이터
+  distributionData: DistributionData[]; // 분포 데이터
+  mostWrong: WrongWord[]; // 가장 많이 틀린 단어 목록
+  streak: number; // 연속 학습 일수
+}

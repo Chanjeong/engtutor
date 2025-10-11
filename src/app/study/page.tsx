@@ -1,5 +1,5 @@
 import { getMultipleRandomWords } from '@/app/actions/words';
-import StudyClient from './StudyClient';
+import StudyClient from '../components/StudyClient';
 
 export default async function StudyPage() {
   const words = await getMultipleRandomWords();
